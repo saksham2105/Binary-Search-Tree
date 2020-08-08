@@ -1,9 +1,13 @@
 var canvas = document.getElementById("tree-view");
 var context = canvas.getContext("2d");
+var leastNode=null;
 var currentXCoordinate;
 var currentYCoordinate;
 var animationStatus;
+var flag=false;
 var searchAnimationStatus;
+var nodeToDelete=null;
+var deleteAnimationStatus;
 var traversalSpeed=700;
 var ongoingProcess;
 var fromx,fromy;
@@ -45,9 +49,12 @@ constructor()
 this.xCoordinateOfCenter=0;
 this.yCoordinateOfCenter=0;
 this.data=0;
+this.tox=0;
+this.toy=0;
 this.radius=0;
 this.rightChild=null;
 this.leftChild=null;
+this.parentNode=null;
 }
 setXCoordinate(xc)
 {
@@ -261,9 +268,8 @@ function stopAnimation(){
 function Insert()
 {
     ongoingProcess="insertion";
-    var rr=document.getElementById("result");
     var rslt=document.getElementById("result").getContext("2d");
-    rslt.clearRect(0,0,rr.width,rr.height);
+    rslt.clearRect(0,0,canvas.width,canvas.height);
     var btnId=document.getElementById("insert-btn");
         btnId.removeAttribute("data-toggle","modal");
         btnId.removeAttribute("data-target","#myModal");
@@ -302,14 +308,15 @@ function Insert()
     node.rightChild=null;
     if(rootNode==null)
     {
-        currentXCoordinate=600-rad-30;
-        currentYCoordinate=100+rad+30;
-        node.setXCoordinate(600);
-        node.setYCoordinate(100);
+        currentXCoordinate=650-rad-30;
+        currentYCoordinate=150+rad+30;
+        node.setXCoordinate(650);
+        node.setYCoordinate(150);
         node.radius=rad;
         nodes.push(node);
         currentNode=node;
         rootNode=node;
+        rootNode.parentNode=null;
         borderAnimationStatus=setInterval(startBorderAnimation,300);
     }
     else{
@@ -353,11 +360,14 @@ function Insert()
             fromy=parentNode.getYCoordinate()+parentNode.radius*Math.sin(Math.PI/4);
             tox=nodeToAdd.getXCoordinate()+nodeToAdd.radius*Math.cos(Math.PI/4);
             toy=nodeToAdd.getYCoordinate()+nodeToAdd.radius*-1*Math.sin(Math.PI/4);
-            l=new Line();
+            nodeToAdd.tox=tox;
+            nodeToAdd.toy=toy;
+           var l=new Line();
             l.setFrom(fromx,fromy);
             l.setTo(tox,toy);
             lines.push(l);
             parentNode.leftChild=nodeToAdd;
+            nodeToAdd.parentNode=parentNode;
             currentNode=nodeToAdd;
         }
         if(isRightChild){
@@ -371,11 +381,14 @@ function Insert()
             fromy=parentNode.getYCoordinate()+parentNode.radius*Math.sin(Math.PI/4);
             tox=nodeToAdd.getXCoordinate()+nodeToAdd.radius*-1*Math.cos(Math.PI/4);
             toy=nodeToAdd.getYCoordinate()+nodeToAdd.radius*-1*Math.sin(Math.PI/4);
-            l=new Line();
+            nodeToAdd.tox=tox;
+            nodeToAdd.toy=toy;
+           var l=new Line();
             l.setFrom(fromx,fromy);
             l.setTo(tox,toy);
             lines.push(l);
             parentNode.rightChild=nodeToAdd;
+            nodeToAdd.parentNode=parentNode;
             currentNode=nodeToAdd;
         }
         nodes.push(nodeToAdd);
@@ -527,6 +540,8 @@ function clearNodes()
     var rslt=document.getElementById("result").getContext("2d");
     rslt.clearRect(0,0,rr.width,rr.height);
 numberOfTimes=0;
+nodeToDelete=null;
+deleteAnimationStatus=0;
 rootNode.leftChild=null;
 rootNode.rightChild=null;
 PreorderStack=[];
@@ -549,8 +564,6 @@ rootNode=null;
 currentNode=null;
 currentXCoordinate=0;
 currentYCoordinate=0;
-nodes.splice(0,nodes.length);
-lines.splice(0,lines.length);
 nodes=[];
 lines=[];
 context.clearRect(0,0,canvas.width,canvas.height);
@@ -986,5 +999,923 @@ function changeAnimationSpeed()
 {
 var speed=document.getElementById("speed").value;
 var valueToSet=20-parseInt(speed);
+}
 
+function draw()
+{
+var ctx=document.getElementById("tree-view").getContext("2d");
+var i=0;
+ctx.clearRect(0,0,canvas.width,canvas.height);
+for(var node of nodes)
+{   
+ctx.beginPath();
+ctx.arc(node.getXCoordinate(),node.getYCoordinate(),node.radius,0,2*Math.PI);
+ctx.fillStyle="purple";
+ctx.fill();
+context.strokeStyle="purple";
+ctx.stroke();
+ctx.beginPath();
+ctx.fillStyle="white";
+ctx.font="18px Arial";
+ctx.fillText(node.getData().toString(),node.getXCoordinate()-8-node.getData().length*2,node.getYCoordinate()+1+node.getData().length*2);
+ctx.fill();
+ctx.stroke();
+}
+for(var l of lines)
+{
+drawArrowHead(l.fromxcord,l.fromycord,l.toxcord,l.toycord);
+}
+document.getElementById("rubik").innerHTML="";
+}
+function stopDeleteAnimation()
+{
+var nodeIndex=-1;
+var lineIndex=-1;
+nodeIndex=nodes.indexOf(nodeToDelete);
+var line=null;
+for(var l of lines)
+{
+if((l.toxcord==nodeToDelete.tox) && (l.toycord==nodeToDelete.toy))
+{
+line=l;
+break;
+}
+}
+lineIndex=lines.indexOf(line);
+var parent=nodeToDelete.parentNode;
+if(parent==null)
+{
+nodes.splice(nodeIndex,1);
+lines.splice(lineIndex,1);
+rootNode=null;
+nodeToDelete=null;
+flag=false;
+clearInterval(deleteAnimationStatus);
+draw();
+return;
+}
+else
+{
+if(parent.rightChild==nodeToDelete) parent.rightChild=null;
+if(parent.leftChild==nodeToDelete) parent.leftChild=null;
+nodes.splice(nodeIndex,1);
+lines.splice(lineIndex,1);
+nodeToDelete=null;
+flag=false;
+clearInterval(deleteAnimationStatus);
+draw();
+return;
+}
+}
+var deleteAnimationCount=0;
+function startDeleteAnimation()
+{
+    document.getElementById("rubik").innerHTML="<img src='rubik.gif'>";
+if(deleteAnimationCount==3) {
+    flag=true;
+    deleteAnimationCount=0;
+    stopDeleteAnimation();
+    return;
+}
+var ctx=document.getElementById("tree-view").getContext("2d");
+ctx.clearRect(0,0,canvas.width,canvas.height);
+for(var node of nodes)
+{   
+if(nodeToDelete.getData()!=node.getData())
+{
+ctx.beginPath();
+ctx.arc(node.getXCoordinate(),node.getYCoordinate(),node.radius,0,2*Math.PI);
+ctx.fillStyle="purple";
+ctx.fill();
+context.strokeStyle="purple";
+ctx.stroke();
+ctx.beginPath();
+ctx.fillStyle="white";
+ctx.font="18px Arial";
+ctx.fillText(node.getData().toString(),node.getXCoordinate()-8-node.getData().length*2,node.getYCoordinate()+1+node.getData().length*2);
+ctx.fill();
+ctx.stroke();
+}
+else
+{
+ctx.beginPath();
+ctx.arc(node.getXCoordinate(),node.getYCoordinate(),node.radius,0,2*Math.PI);
+ctx.fillStyle="purple";
+ctx.fill();
+ctx.lineWidth=5;
+context.strokeStyle="red";
+ctx.stroke();
+ctx.beginPath();
+ctx.fillStyle="white";
+ctx.font="18px Arial";
+ctx.fillText(node.getData().toString(),node.getXCoordinate()-8-node.getData().length*2,node.getYCoordinate()+1+node.getData().length*2);
+ctx.fill();
+ctx.stroke();
+}
+}
+for(let l of lines)
+{
+drawArrowHead(l.fromxcord,l.fromycord,l.toxcord,l.toycord);
+}
+deleteAnimationCount+=1;
+}
+var deleteAnimationForOneChildStatus;
+var deleteForOneChildCount=0;
+function stopDeleteAnimationForOneChild()
+{
+clearInterval(deleteAnimationForOneChildStatus);
+document.getElementById("rubik").innerHTML="";
+var node=nodeToDelete;
+var ctx=document.getElementById("tree-view").getContext("2d");
+var parent=node.parentNode;
+var nextChild=null;
+var queue;
+let isLeftChild=false;
+let isRightChild=false;
+var curr;
+var LevelOrderStack;
+//code for root Node...
+if(parent==null) //rootNode
+{
+queue=new Array();
+LevelOrderStack=new Array();
+if(node.rightChild!=null) 
+{
+nextChild=node.rightChild;
+isRightChild=true;
+isLeftChild=false;
+}
+if(node.leftChild!=null)
+{
+nextChild=node.leftChild;
+isRightChild=false;
+isLeftChild=true;
+} 
+nextChild.setXCoordinate(node.getXCoordinate());
+nextChild.setYCoordinate(node.getYCoordinate());
+rootNode=nextChild;
+rootNode.parentNode=null;
+queue.push(node);
+while(queue.length>=1)
+{
+curr=queue[0];
+var popped=queue.shift();
+if(curr.leftChild) queue.push(curr.leftChild);
+if(curr.rightChild) queue.push(curr.rightChild);
+LevelOrderStack.push(curr);
+}
+LevelOrderStack.splice(0,1);
+for(let l of LevelOrderStack)
+{
+    parent=l.parentNode;
+    if(parent==null) {
+        continue;
+    }
+    if(parent.leftChild==l)
+    {
+    l.setXCoordinate(l.parentNode.getXCoordinate()-l.parentNode.radius-20-l.radius);
+    l.setYCoordinate(l.parentNode.getYCoordinate()+l.parentNode.radius+20+l.radius);
+    fromx=l.parentNode.getXCoordinate()+l.parentNode.radius*-1*Math.cos(Math.PI/4);
+    fromy=l.parentNode.getYCoordinate()+l.parentNode.radius*Math.sin(Math.PI/4);
+    tox=l.getXCoordinate()+l.radius*Math.cos(Math.PI/4);
+    toy=l.getYCoordinate()+l.radius*-1*Math.sin(Math.PI/4);
+    l.tox=tox;
+    l.toy=toy;
+    }
+    else
+    {
+    l.setXCoordinate(l.parentNode.getXCoordinate()+l.parentNode.radius+20+l.radius);
+    l.setYCoordinate(l.parentNode.getYCoordinate()+l.parentNode.radius+20+l.radius);
+    fromx=l.parentNode.getXCoordinate()+l.parentNode.radius*Math.cos(Math.PI/4);
+    fromy=l.parentNode.getYCoordinate()+l.parentNode.radius*Math.sin(Math.PI/4);
+    tox=l.getXCoordinate()+l.radius*-1*Math.cos(Math.PI/4);
+    toy=l.getYCoordinate()+l.radius*-1*Math.sin(Math.PI/4);
+    l.tox=tox;
+    l.toy=toy;
+    }
+
+}
+let x=null;
+for(var a of nodes)
+{
+if(node.getData()==a.getData()){
+    x=a;
+    break;
+} 
+}
+nodes.splice(nodes.indexOf(x),1);
+for(var a of nodes)
+{
+for(var b of LevelOrderStack)
+{
+if(b.getData()==a.getData()) 
+{
+a=b;
+}
+}    
+}
+lines=[];
+for(var n of nodes)
+{
+parent=n.parentNode;
+if(parent==null) continue;
+if(parent.leftChild==n)
+{
+fromx=n.parentNode.getXCoordinate()+n.parentNode.radius*-1*Math.cos(Math.PI/4);
+fromy=n.parentNode.getYCoordinate()+n.parentNode.radius*Math.sin(Math.PI/4);
+tox=n.getXCoordinate()+n.radius*Math.cos(Math.PI/4);
+toy=n.getYCoordinate()+n.radius*-1*Math.sin(Math.PI/4);
+let line=new Line();
+line.setFrom(fromx,fromy);
+line.setTo(tox,toy);  
+lines.push(line);
+}
+if(parent.rightChild==n)
+{
+fromx=n.parentNode.getXCoordinate()+n.parentNode.radius*Math.cos(Math.PI/4);
+fromy=n.parentNode.getYCoordinate()+n.parentNode.radius*Math.sin(Math.PI/4);
+tox=n.getXCoordinate()+n.radius*-1*Math.cos(Math.PI/4);
+toy=n.getYCoordinate()+n.radius*-1*Math.sin(Math.PI/4);
+let line=new Line();
+line.setFrom(fromx,fromy);
+line.setTo(tox,toy);  
+lines.push(line);
+}
+}
+ctx.clearRect(0,0,canvas.width,canvas.height);
+for(var n of nodes)
+{   
+ctx.beginPath();
+ctx.arc(n.getXCoordinate(),n.getYCoordinate(),n.radius,0,2*Math.PI);
+ctx.fillStyle="purple";
+ctx.fill();
+context.strokeStyle="purple";
+ctx.stroke();
+ctx.beginPath();
+ctx.fillStyle="white";
+ctx.font="18px Arial";
+ctx.fillText(n.getData().toString(),n.getXCoordinate()-8-n.getData().length*2,n.getYCoordinate()+1+n.getData().length*2);
+ctx.fill();
+ctx.stroke();
+}
+for(let l of lines)
+{
+drawArrowHead(l.fromxcord,l.fromycord,l.toxcord,l.toycord);
+}
+}
+//when node isn't root
+
+else
+{
+queue=new Array();
+LevelOrderStack=new Array();
+if(node.rightChild!=null) 
+{
+nextChild=node.rightChild;
+isRightChild=true;
+isLeftChild=false;
+}
+if(node.leftChild!=null)
+{
+nextChild=node.leftChild;
+isRightChild=false;
+isLeftChild=true;
+} 
+nextChild.setXCoordinate(node.getXCoordinate());
+nextChild.setYCoordinate(node.getYCoordinate());
+if(node.parentNode.rightChild==node) parent.rightChild=nextChild;
+if(node.parentNode.leftChild==node) parent.leftChild=nextChild;
+nextChild.parentNode=parent;
+queue.push(node);
+while(queue.length>=1)
+{
+curr=queue[0];
+var popped=queue.shift();
+if(curr.leftChild) queue.push(curr.leftChild);
+if(curr.rightChild) queue.push(curr.rightChild);
+LevelOrderStack.push(curr);
+}
+LevelOrderStack.splice(0,1);
+LevelOrderStack.splice(0,1);
+for(let l of LevelOrderStack)
+{
+    parent=l.parentNode;
+    if(parent==null) {
+        continue;
+    }
+    if(parent.leftChild==l)
+    {
+    l.setXCoordinate(l.parentNode.getXCoordinate()-l.parentNode.radius-20-l.radius);
+    l.setYCoordinate(l.parentNode.getYCoordinate()+l.parentNode.radius+20+l.radius);
+    fromx=l.parentNode.getXCoordinate()+l.parentNode.radius*-1*Math.cos(Math.PI/4);
+    fromy=l.parentNode.getYCoordinate()+l.parentNode.radius*Math.sin(Math.PI/4);
+    tox=l.getXCoordinate()+l.radius*Math.cos(Math.PI/4);
+    toy=l.getYCoordinate()+l.radius*-1*Math.sin(Math.PI/4);
+    l.tox=tox;
+    l.toy=toy;
+    }
+    else
+    {
+    l.setXCoordinate(l.parentNode.getXCoordinate()+l.parentNode.radius+20+l.radius);
+    l.setYCoordinate(l.parentNode.getYCoordinate()+l.parentNode.radius+20+l.radius);
+    fromx=l.parentNode.getXCoordinate()+l.parentNode.radius*Math.cos(Math.PI/4);
+    fromy=l.parentNode.getYCoordinate()+l.parentNode.radius*Math.sin(Math.PI/4);
+    tox=l.getXCoordinate()+l.radius*-1*Math.cos(Math.PI/4);
+    toy=l.getYCoordinate()+l.radius*-1*Math.sin(Math.PI/4);
+    l.tox=tox;
+    l.toy=toy;
+    }
+
+}
+let x=null;
+for(var a of nodes)
+{
+if(node.getData()==a.getData())
+{
+x=a;
+break;
+} 
+}
+nodes.splice(nodes.indexOf(x),1);
+for(var a of nodes)
+{
+for(var b of LevelOrderStack)
+{
+if(b.getData()==a.getData()) 
+{
+a=b;
+}
+}    
+}
+lines=[];
+for(var n of nodes)
+{
+parent=n.parentNode;
+if(parent==null) continue;
+if(parent.leftChild==n)
+{
+fromx=n.parentNode.getXCoordinate()+n.parentNode.radius*-1*Math.cos(Math.PI/4);
+fromy=n.parentNode.getYCoordinate()+n.parentNode.radius*Math.sin(Math.PI/4);
+tox=n.getXCoordinate()+n.radius*Math.cos(Math.PI/4);
+toy=n.getYCoordinate()+n.radius*-1*Math.sin(Math.PI/4);
+let line=new Line();
+line.setFrom(fromx,fromy);
+line.setTo(tox,toy);  
+lines.push(line);
+}
+if(parent.rightChild==n)
+{
+fromx=n.parentNode.getXCoordinate()+n.parentNode.radius*Math.cos(Math.PI/4);
+fromy=n.parentNode.getYCoordinate()+n.parentNode.radius*Math.sin(Math.PI/4);
+tox=n.getXCoordinate()+n.radius*-1*Math.cos(Math.PI/4);
+toy=n.getYCoordinate()+n.radius*-1*Math.sin(Math.PI/4);
+let line=new Line();
+line.setFrom(fromx,fromy);
+line.setTo(tox,toy);  
+lines.push(line);
+}
+}
+ctx.clearRect(0,0,canvas.width,canvas.height);
+for(var n of nodes)
+{   
+ctx.beginPath();
+ctx.arc(n.getXCoordinate(),n.getYCoordinate(),n.radius,0,2*Math.PI);
+ctx.fillStyle="purple";
+ctx.fill();
+context.strokeStyle="purple";
+ctx.stroke();
+ctx.beginPath();
+ctx.fillStyle="white";
+ctx.font="18px Arial";
+ctx.fillText(n.getData().toString(),n.getXCoordinate()-8-n.getData().length*2,n.getYCoordinate()+1+n.getData().length*2);
+ctx.fill();
+ctx.stroke();
+}
+for(let l of lines)
+{
+drawArrowHead(l.fromxcord,l.fromycord,l.toxcord,l.toycord);
+}
+}
+}
+function startDeleteAnimationForOneChild()
+{
+document.getElementById("rubik").innerHTML="<img src='rubik.gif'>";
+var ctx=document.getElementById("tree-view").getContext("2d");
+if(deleteForOneChildCount==3)
+{
+stopDeleteAnimationForOneChild();
+deleteForOneChildCount=0;
+return;
+}
+ctx.clearRect(0,0,canvas.width,canvas.height);
+for(var n of nodes)
+{   
+if(n.getData()==nodeToDelete.getData())
+{
+ctx.beginPath();
+ctx.arc(n.getXCoordinate(),n.getYCoordinate(),n.radius,0,2*Math.PI);
+ctx.fillStyle="purple";
+ctx.fill();
+ctx.lineWidth=5;
+ctx.strokeStyle="red";
+ctx.stroke();
+ctx.beginPath();
+ctx.fillStyle="white";
+ctx.font="18px Arial";
+ctx.fillText(n.getData().toString(),n.getXCoordinate()-8-n.getData().length*2,n.getYCoordinate()+1+n.getData().length*2);
+ctx.fill();
+ctx.stroke();
+}
+else
+{
+ctx.beginPath();
+ctx.arc(n.getXCoordinate(),n.getYCoordinate(),n.radius,0,2*Math.PI);
+ctx.fillStyle="purple";
+ctx.fill();
+ctx.strokeStyle="purple";
+ctx.stroke();
+ctx.beginPath();
+ctx.fillStyle="white";
+ctx.font="18px Arial";
+ctx.fillText(n.getData().toString(),n.getXCoordinate()-8-n.getData().length*2,n.getYCoordinate()+1+n.getData().length*2);
+ctx.fill();
+ctx.stroke();
+}
+}
+for(let l of lines)
+{
+drawArrowHead(l.fromxcord,l.fromycord,l.toxcord,l.toycord);
+}
+deleteForOneChildCount+=1;
+}
+function adjustChildrensPositions(node)
+{
+deleteAnimationForOneChildStatus=setInterval(startDeleteAnimationForOneChild,600);
+}
+
+var deleteAnimationForTwoChildStatus;
+var deleteForTwoChildCount=0;
+function stopDeleteAnimationForTwoChild()
+{
+clearInterval(deleteAnimationForTwoChildStatus);
+var ctx=document.getElementById("tree-view").getContext("2d");
+var leastNodeData=leastNode.getData();
+document.getElementById("rubik").innerHTML="";
+if(leastNode.leftChild==null && leastNode.rightChild==null)
+{
+var nodeIndex=-1;
+var lineIndex=-1;
+nodeIndex=nodes.indexOf(leastNode);
+var line=null;
+for(var l of lines)
+{
+if((l.toxcord==leastNode.tox) && (l.toycord==leastNode.toy))
+{
+line=l;
+break;
+}
+}
+lineIndex=lines.indexOf(line);
+var parent=leastNode.parentNode;
+if(parent==null)
+{
+nodes.splice(nodeIndex,1);
+lines.splice(lineIndex,1);
+rootNode=null;
+leastNode=null;
+}
+else
+{
+if(parent.rightChild==leastNode) parent.rightChild=null;
+if(parent.leftChild==leastNode) parent.leftChild=null;
+nodes.splice(nodeIndex,1);
+lines.splice(lineIndex,1);
+leastNode=null;
+}
+for(var n of nodes)
+{
+if(n.getData()==nodeToDelete.getData())
+{
+n.setData(leastNodeData);
+nodeToDelete.setData(leastNodeData);
+}   
+}
+} //if ends...
+else
+{
+
+    var parent=leastNode.parentNode;
+    var nextChild=null;
+    var queue;
+    let isLeftChild=false;
+    let isRightChild=false;
+    var curr;
+    var LevelOrderStack;
+    //code for root Node...
+    if(parent==null) //rootNode
+    {
+    queue=new Array();
+    LevelOrderStack=new Array();
+    if(leastNode.rightChild!=null) 
+    {
+    nextChild=leastNode.rightChild;
+    isRightChild=true;
+    isLeftChild=false;
+    }
+    if(leastNode.leftChild!=null)
+    {
+    nextChild=leastNode.leftChild;
+    isRightChild=false;
+    isLeftChild=true;
+    } 
+    nextChild.setXCoordinate(leastNode.getXCoordinate());
+    nextChild.setYCoordinate(leastNode.getYCoordinate());
+    rootNode=nextChild;
+    rootNode.parentNode=null;
+    queue.push(leastNode);
+    while(queue.length>=1)
+    {
+    curr=queue[0];
+    var popped=queue.shift();
+    if(curr.leftChild) queue.push(curr.leftChild);
+    if(curr.rightChild) queue.push(curr.rightChild);
+    LevelOrderStack.push(curr);
+    }
+    LevelOrderStack.splice(0,1);
+    for(let l of LevelOrderStack)
+    {
+        parent=l.parentNode;
+        if(parent==null) {
+            continue;
+        }
+        if(parent.leftChild==l)
+        {
+        l.setXCoordinate(l.parentNode.getXCoordinate()-l.parentNode.radius-20-l.radius);
+        l.setYCoordinate(l.parentNode.getYCoordinate()+l.parentNode.radius+20+l.radius);
+        fromx=l.parentNode.getXCoordinate()+l.parentNode.radius*-1*Math.cos(Math.PI/4);
+        fromy=l.parentNode.getYCoordinate()+l.parentNode.radius*Math.sin(Math.PI/4);
+        tox=l.getXCoordinate()+l.radius*Math.cos(Math.PI/4);
+        toy=l.getYCoordinate()+l.radius*-1*Math.sin(Math.PI/4);
+        l.tox=tox;
+        l.toy=toy;
+        }
+        else
+        {
+        l.setXCoordinate(l.parentNode.getXCoordinate()+l.parentNode.radius+20+l.radius);
+        l.setYCoordinate(l.parentNode.getYCoordinate()+l.parentNode.radius+20+l.radius);
+        fromx=l.parentNode.getXCoordinate()+l.parentNode.radius*Math.cos(Math.PI/4);
+        fromy=l.parentNode.getYCoordinate()+l.parentNode.radius*Math.sin(Math.PI/4);
+        tox=l.getXCoordinate()+l.radius*-1*Math.cos(Math.PI/4);
+        toy=l.getYCoordinate()+l.radius*-1*Math.sin(Math.PI/4);
+        l.tox=tox;
+        l.toy=toy;
+        }
+    
+    }
+    let x=null;
+    for(var a of nodes)
+    {
+    if(leastNode.getData()==a.getData()){
+        x=a;
+        break;
+    } 
+    }
+    nodes.splice(nodes.indexOf(x),1);
+    for(var a of nodes)
+    {
+    for(var b of LevelOrderStack)
+    {
+    if(b.getData()==a.getData()) 
+    {
+    a=b;
+    }
+    }    
+    }
+    lines=[];
+    for(var n of nodes)
+    {
+    parent=n.parentNode;
+    if(parent==null) continue;
+    if(parent.leftChild==n)
+    {
+    fromx=n.parentNode.getXCoordinate()+n.parentNode.radius*-1*Math.cos(Math.PI/4);
+    fromy=n.parentNode.getYCoordinate()+n.parentNode.radius*Math.sin(Math.PI/4);
+    tox=n.getXCoordinate()+n.radius*Math.cos(Math.PI/4);
+    toy=n.getYCoordinate()+n.radius*-1*Math.sin(Math.PI/4);
+    let line=new Line();
+    line.setFrom(fromx,fromy);
+    line.setTo(tox,toy);  
+    lines.push(line);
+    }
+    if(parent.rightChild==n)
+    {
+    fromx=n.parentNode.getXCoordinate()+n.parentNode.radius*Math.cos(Math.PI/4);
+    fromy=n.parentNode.getYCoordinate()+n.parentNode.radius*Math.sin(Math.PI/4);
+    tox=n.getXCoordinate()+n.radius*-1*Math.cos(Math.PI/4);
+    toy=n.getYCoordinate()+n.radius*-1*Math.sin(Math.PI/4);
+    let line=new Line();
+    line.setFrom(fromx,fromy);
+    line.setTo(tox,toy);  
+    lines.push(line);
+    }
+    }
+    }
+    //when node isn't root
+    
+    else
+    {
+    parent=leastNode.parentNode;
+    queue=new Array();
+    LevelOrderStack=new Array();
+    if(leastNode.rightChild!=null) 
+    {
+    nextChild=leastNode.rightChild;
+    isRightChild=true;
+    isLeftChild=false;
+    }
+    if(leastNode.leftChild!=null)
+    {
+    nextChild=leastNode.leftChild;
+    isRightChild=false;
+    isLeftChild=true;
+    } 
+    nextChild.setXCoordinate(leastNode.getXCoordinate());
+    nextChild.setYCoordinate(leastNode.getYCoordinate());
+    if(leastNode.parentNode.rightChild==leastNode) parent.rightChild=nextChild;
+    if(leastNode.parentNode.leftChild==leastNode) parent.leftChild=nextChild;
+    nextChild.parentNode=parent;
+    queue.push(leastNode);
+    while(queue.length>=1)
+    {
+    curr=queue[0];
+    var popped=queue.shift();
+    if(curr.leftChild) queue.push(curr.leftChild);
+    if(curr.rightChild) queue.push(curr.rightChild);
+    LevelOrderStack.push(curr);
+    }
+    LevelOrderStack.splice(0,1);
+    LevelOrderStack.splice(0,1);
+    for(let l of LevelOrderStack)
+    {
+        parent=l.parentNode;
+        if(parent==null) {
+            continue;
+        }
+        if(parent.leftChild==l)
+        {
+        l.setXCoordinate(l.parentNode.getXCoordinate()-l.parentNode.radius-20-l.radius);
+        l.setYCoordinate(l.parentNode.getYCoordinate()+l.parentNode.radius+20+l.radius);
+        fromx=l.parentNode.getXCoordinate()+l.parentNode.radius*-1*Math.cos(Math.PI/4);
+        fromy=l.parentNode.getYCoordinate()+l.parentNode.radius*Math.sin(Math.PI/4);
+        tox=l.getXCoordinate()+l.radius*Math.cos(Math.PI/4);
+        toy=l.getYCoordinate()+l.radius*-1*Math.sin(Math.PI/4);
+        l.tox=tox;
+        l.toy=toy;
+        }
+        else
+        {
+        l.setXCoordinate(l.parentNode.getXCoordinate()+l.parentNode.radius+20+l.radius);
+        l.setYCoordinate(l.parentNode.getYCoordinate()+l.parentNode.radius+20+l.radius);
+        fromx=l.parentNode.getXCoordinate()+l.parentNode.radius*Math.cos(Math.PI/4);
+        fromy=l.parentNode.getYCoordinate()+l.parentNode.radius*Math.sin(Math.PI/4);
+        tox=l.getXCoordinate()+l.radius*-1*Math.cos(Math.PI/4);
+        toy=l.getYCoordinate()+l.radius*-1*Math.sin(Math.PI/4);
+        l.tox=tox;
+        l.toy=toy;
+        }
+    
+    }
+    let x=null;
+    for(var a of nodes)
+    {
+    if(leastNode.getData()==a.getData())
+    {
+    x=a;
+    break;
+    } 
+    }
+    nodes.splice(nodes.indexOf(x),1);
+    for(var a of nodes)
+    {
+    for(var b of LevelOrderStack)
+    {
+    if(b.getData()==a.getData()) 
+    {
+    a=b;
+    }
+    }    
+    }
+    lines=[];
+    for(var n of nodes)
+    {
+    parent=n.parentNode;
+    if(parent==null) continue;
+    if(parent.leftChild==n)
+    {
+    fromx=n.parentNode.getXCoordinate()+n.parentNode.radius*-1*Math.cos(Math.PI/4);
+    fromy=n.parentNode.getYCoordinate()+n.parentNode.radius*Math.sin(Math.PI/4);
+    tox=n.getXCoordinate()+n.radius*Math.cos(Math.PI/4);
+    toy=n.getYCoordinate()+n.radius*-1*Math.sin(Math.PI/4);
+    let line=new Line();
+    line.setFrom(fromx,fromy);
+    line.setTo(tox,toy);  
+    lines.push(line);
+    }
+    if(parent.rightChild==n)
+    {
+    fromx=n.parentNode.getXCoordinate()+n.parentNode.radius*Math.cos(Math.PI/4);
+    fromy=n.parentNode.getYCoordinate()+n.parentNode.radius*Math.sin(Math.PI/4);
+    tox=n.getXCoordinate()+n.radius*-1*Math.cos(Math.PI/4);
+    toy=n.getYCoordinate()+n.radius*-1*Math.sin(Math.PI/4);
+    let line=new Line();
+    line.setFrom(fromx,fromy);
+    line.setTo(tox,toy);  
+    lines.push(line);
+    }
+    }
+    }
+    
+
+    for(var n of nodes)
+    {
+    if(n.getData()==nodeToDelete.getData())
+    {
+    n.setData(leastNodeData);
+    nodeToDelete.setData(leastNodeData);
+    }   
+    }
+    
+
+}
+ctx.clearRect(0,0,canvas.width,canvas.height);
+for(var n of nodes)
+{
+ctx.beginPath();
+ctx.arc(n.getXCoordinate(),n.getYCoordinate(),n.radius,0,2*Math.PI);
+ctx.fillStyle="purple";
+ctx.fill();
+ctx.strokeStyle="purple";
+ctx.stroke();
+ctx.beginPath();
+ctx.fillStyle="white";
+ctx.font="18px Arial";
+ctx.fillText(n.getData().toString(),n.getXCoordinate()-8-n.getData().length*2,n.getYCoordinate()+1+n.getData().length*2);
+ctx.fill();
+ctx.stroke();    
+}
+for(let l of lines)
+{
+drawArrowHead(l.fromxcord,l.fromycord,l.toxcord,l.toycord);
+}
+}
+
+function startAnimationForTwoChild()
+{
+var ctx=document.getElementById("tree-view").getContext("2d");
+document.getElementById("rubik").innerHTML="<img src='rubik.gif'>";
+if(deleteForTwoChildCount==3)
+{
+deleteForTwoChildCount=0;
+stopDeleteAnimationForTwoChild();
+return;
+}
+ctx.clearRect(0,0,canvas.width,canvas.height);
+for(var n of nodes)
+{
+if(n.getData()==nodeToDelete.getData())
+{
+ctx.beginPath();
+ctx.arc(n.getXCoordinate(),n.getYCoordinate(),n.radius,0,2*Math.PI);
+ctx.fillStyle="purple";
+ctx.fill();
+ctx.lineWidth=5;
+ctx.strokeStyle="red";
+ctx.stroke();
+ctx.beginPath();
+ctx.fillStyle="white";
+ctx.font="18px Arial";
+ctx.fillText(n.getData().toString(),n.getXCoordinate()-8-n.getData().length*2,n.getYCoordinate()+1+n.getData().length*2);
+ctx.fill();
+ctx.stroke();
+}
+if(n.getData()==leastNode.getData())
+{
+ctx.beginPath();
+ctx.arc(n.getXCoordinate(),n.getYCoordinate(),n.radius,0,2*Math.PI);
+ctx.fillStyle="purple";
+ctx.fill();
+ctx.lineWidth=5;
+ctx.strokeStyle="yellow";
+ctx.stroke();
+ctx.beginPath();
+ctx.fillStyle="white";
+ctx.font="18px Arial";
+ctx.fillText(n.getData().toString(),n.getXCoordinate()-8-n.getData().length*2,n.getYCoordinate()+1+n.getData().length*2);
+ctx.fill();
+ctx.stroke();
+}
+if(n.getData()!=leastNode.getData() && n.getData()!=nodeToDelete.getData())
+{
+ctx.beginPath();
+ctx.arc(n.getXCoordinate(),n.getYCoordinate(),n.radius,0,2*Math.PI);
+ctx.fillStyle="purple";
+ctx.fill();
+ctx.strokeStyle="purple";
+ctx.stroke();
+ctx.beginPath();
+ctx.fillStyle="white";
+ctx.font="18px Arial";
+ctx.fillText(n.getData().toString(),n.getXCoordinate()-8-n.getData().length*2,n.getYCoordinate()+1+n.getData().length*2);
+ctx.fill();
+ctx.stroke();
+}
+}
+for(let l of lines)
+{
+drawArrowHead(l.fromxcord,l.fromycord,l.toxcord,l.toycord);
+}
+deleteForTwoChildCount+=1;
+}
+
+function deleteNodeHavingTwoChild()
+{
+leastNode=nodeToDelete.rightChild;
+while(leastNode!=null)
+{
+if(leastNode.leftChild) leastNode=leastNode.leftChild;
+else break;
+}
+deleteAnimationForTwoChildStatus=setInterval(startAnimationForTwoChild,1000);
+}
+function deleteNode()
+{    
+var rr=document.getElementById("result");
+var rslt=document.getElementById("result").getContext("2d");
+rslt.clearRect(0,0,rr.width,rr.height);
+var ctx=document.getElementById("tree-view").getContext("2d");
+var data=document.getElementById("input-text").value;
+var btnId=document.getElementById("delete-btn");
+btnId.removeAttribute("data-toggle","modal");
+btnId.removeAttribute("data-target","#myModal");
+hasToggleProperty=false;
+var data=document.getElementById("input-text").value;
+if(data=="" || data.length==0 || data.length>10 || !isNaN(data)==false)
+{
+document.getElementById("modalId").innerText="Please feed appropriate integer number in textfield";
+btnId.setAttribute("data-toggle","modal");
+btnId.setAttribute("data-target","#myModal");
+hasToggleProperty=true;
+return;
+}
+if(rootNode==null)
+{
+document.getElementById("modalId").innerText="Can not delete as root is null";
+btnId.setAttribute("data-toggle","modal");
+btnId.setAttribute("data-target","#myModal");
+hasToggleProperty=true;
+return;
+}
+let localData=parseInt(data);
+let exists=false;
+let i=0;
+for(var n of nodes)
+{
+if(parseInt(n.getData())==localData) exists=true;
+}
+if(!exists)
+{
+document.getElementById("modalId").innerText="Can not delete as node with data : "+data+" doesn't exists";
+btnId.setAttribute("data-toggle","modal");
+btnId.setAttribute("data-target","#myModal");
+hasToggleProperty=true;
+return;
+}
+let node;
+let indexOfNode=0;
+for(var n of nodes)
+{
+if(parseInt(n.getData())==localData)
+{
+node=n;
+break;
+} 
+indexOfNode++;
+}
+if(node.leftChild==null && node.rightChild==null)
+{
+nodeToDelete=node;
+deleteAnimationStatus=setInterval(startDeleteAnimation,600);
+return;
+}
+if((node.leftChild!=null && node.rightChild==null) || (node.leftChild==null && node.rightChild!=null))
+{
+nodeToDelete=node;
+adjustChildrensPositions(nodeToDelete);
+return;
+}
+if(node.leftChild!=null && node.rightChild!=null)
+{
+nodeToDelete=node;
+deleteNodeHavingTwoChild();
+}
 }
